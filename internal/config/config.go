@@ -7,79 +7,65 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config represents the top-level deployment configuration.
-type Config struct {
-	Hosts []Host `yaml:"hosts"`
-	Apps  []App  `yaml:"apps"`
-}
-
-// Host defines a remote server to deploy to.
+// Host describes an SSH target.
 type Host struct {
-	Name       string `yaml:"name"`
-	Address    string `yaml:"address"`
-	User       string `yaml:"user"`
-	Port       int    `yaml:"port"`
-	IdentityFile string `yaml:"identity_file"`
+	Address string `yaml:"address"`
+	Port    int    `yaml:"port"`
+	User    string `yaml:"user"`
+	KeyFile string `yaml:"key_file"`
 }
 
-// App defines a deployable application unit.
+// App describes a deployable application.
 type App struct {
-	Name    string   `yaml:"name"`
-	Host    string   `yaml:"host"`
-	Dir     string   `yaml:"dir"`
-	Steps   []string `yaml:"steps"`
-	EnvFile string   `yaml:"env_file"`
+	Host       string   `yaml:"host"`
+	LocalDir   string   `yaml:"local_dir"`
+	RemotePath string   `yaml:"remote_path"`
+	Commands   []string `yaml:"commands"`
 }
 
-// Load reads and parses a YAML config file from the given path.
+// Config is the top-level configuration structure.
+type Config struct {
+	Hosts map[string]Host `yaml:"hosts"`
+	Apps  map[string]App  `yaml:"apps"`
+}
+
+// Load reads and validates a YAML config file at the given path.
 func Load(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading config file %q: %w", path, err)
+		return nil, fmt.Errorf("read config: %w", err)
 	}
 
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("parsing config file %q: %w", path, err)
+		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	if err := cfg.validate(); err != nil {
-		return nil, fmt.Errorf("invalid config: %w", err)
+	if err := validate(&cfg); err != nil {
+		return nil, err
 	}
 
 	return &cfg, nil
 }
 
-// validate performs basic sanity checks on the loaded config.
-func (c *Config) validate() error {
-	hostNames := make(map[string]struct{}, len(c.Hosts))
-	for _, h := range c.Hosts {
-		if h.Name == "" {
-			return fmt.Errorf("host is missing a name")
+func validate(cfg *Config) error {
+	for name, app := range cfg.Apps {
+		if _, ok := cfg.Hosts[app.Host]; !ok {
+			return fmt.Errorf("app %q references unknown host %q", name, app.Host)
 		}
-		if h.Address == "" {
-			return fmt.Errorf("host %q is missing an address", h.Name)
-		}
-		if h.User == "" {
-			return fmt.Errorf("host %q is missing a user", h.Name)
-		}
-		hostNames[h.Name] = struct{}{}
-	}
-
-	for _, a := range c.Apps {
-		if a.Name == "" {
-			return fmt.Errorf("app is missing a name")
-		}
-		if a.Host == "" {
-			return fmt.Errorf("app %q is missing a host reference", a.Name)
-		}
-		if _, ok := hostNames[a.Host]; !ok {
-			return fmt.Errorf("app %q references unknown host %q", a.Name, a.Host)
-		}
-		if a.Dir == "" {
-			return fmt.Errorf("app %q is missing a working directory", a.Name)
+		if app.LocalDir == "" {
+			return fmt.Errorf("app %q missing local_dir", name)
 		}
 	}
-
+	for name, host := range cfg.Hosts {
+		if host.Port == 0 {
+			cfg.Hosts[name] = Host{
+				Address: host.Address,
+				Port:    22,
+				User:    host.User,
+				KeyFile: host.KeyFile,
+			}
+		}
+	}
 	return nil
 }
