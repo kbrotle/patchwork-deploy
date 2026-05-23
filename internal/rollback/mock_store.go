@@ -36,3 +36,9 @@ func (m *MockStore) Load(app, host string) (*Snapshot, error) {
 	}
 	return &snap, nil
 }
+
+// Len returns the number of snapshots currently held in the store.
+// Useful in tests to assert that saves occurred the expected number of times.
+func (m *MockStore) Len() int {
+	return len(m.data)
+}
