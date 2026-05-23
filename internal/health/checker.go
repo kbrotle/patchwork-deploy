@@ -59,6 +59,15 @@ func (c *Checker) Check(appName string) Status {
 	return Status{App: appName, Healthy: true, Message: "no health check configured"}
 }
 
+// CheckAll runs health checks for all apps in the config and returns a slice of results.
+func (c *Checker) CheckAll() []Status {
+	statuses := make([]Status, 0, len(c.cfg.Apps))
+	for appName := range c.cfg.Apps {
+		statuses = append(statuses, c.Check(appName))
+	}
+	return statuses
+}
+
 func (c *Checker) httpCheck(appName, url string) Status {
 	resp, err := c.client.Get(url)
 	if err != nil {
