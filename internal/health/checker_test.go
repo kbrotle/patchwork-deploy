@@ -90,6 +90,25 @@ func TestCheck_TCPCheck_Success(t *testing.T) {
 	}
 }
 
+func TestCheck_TCPCheck_Failure(t *testing.T) {
+	// Use a port that is not listening to simulate a failed TCP health check.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	ln.Close() // close immediately so nothing is listening
+
+	cfg := baseConfig()
+	cfg.Apps["myapp"] = config.App{Host: "web", Dir: "/srv/myapp", HealthPort: port}
+
+	c := NewChecker(cfg, 2*time.Second)
+	s := c.Check("myapp")
+	if s.Healthy {
+		t.Fatal("expected unhealthy for closed tcp port")
+	}
+}
+
 func TestNewChecker_DefaultTimeout(t *testing.T) {
 	c := NewChecker(baseConfig(), 0)
 	if c.timeout != 5*time.Second {
