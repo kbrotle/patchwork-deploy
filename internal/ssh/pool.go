@@ -54,3 +54,22 @@ func (p *Pool) Remove(name string) {
 		delete(p.clients, name)
 	}
 }
+
+// Len returns the number of active clients currently held in the pool.
+func (p *Pool) Len() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.clients)
+}
+
+// Names returns the names of all clients currently held in the pool.
+func (p *Pool) Names() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	names := make([]string, 0, len(p.clients))
+	for name := range p.clients {
+		names = append(names, name)
+	}
+	return names
+}
