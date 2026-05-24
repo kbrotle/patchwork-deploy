@@ -85,6 +85,35 @@ func TestToEnvSlice_EmptySecrets(t *testing.T) {
 	}
 }
 
+// TestToEnvSlice_Format verifies that resolved secrets are formatted as KEY=VALUE
+// entries suitable for use as process environment variables.
+func TestToEnvSlice_Format(t *testing.T) {
+	t.Setenv("TEST_API_KEY", "mykey")
+	r := secret.NewResolver(baseConfig())
+	slice, err := r.ToEnvSlice("api")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := map[string]string{
+		"DB_PASS": "literal-password",
+		"API_KEY": "mykey",
+	}
+	if len(slice) != len(want) {
+		t.Fatalf("expected %d entries, got %d: %v", len(want), len(slice), slice)
+	}
+	for _, entry := range slice {
+		for k, v := range want {
+			if entry == k+"="+v {
+				delete(want, k)
+				break
+			}
+		}
+	}
+	if len(want) != 0 {
+		t.Errorf("missing or incorrect entries for keys: %v", want)
+	}
+}
+
 func TestNewResolver_NotNil(t *testing.T) {
 	r := secret.NewResolver(baseConfig())
 	if r == nil {
