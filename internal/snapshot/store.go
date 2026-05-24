@@ -12,6 +12,7 @@ import (
 type Store interface {
 	Save(appName string, snap *Snapshot) error
 	Load(appName string) (*Snapshot, error)
+	Delete(appName string) error
 }
 
 // FileStore is a JSON-backed snapshot store.
@@ -44,6 +45,7 @@ func (s *FileStore) Save(appName string, snap *Snapshot) error {
 }
 
 // Load reads the latest snapshot metadata for appName.
+// Returns (nil, nil) if no snapshot exists for the given appName.
 func (s *FileStore) Load(appName string) (*Snapshot, error) {
 	data, err := os.ReadFile(s.path(appName))
 	if err != nil {
@@ -57,4 +59,13 @@ func (s *FileStore) Load(appName string) (*Snapshot, error) {
 		return nil, fmt.Errorf("snapshot store: unmarshal: %w", err)
 	}
 	return &snap, nil
+}
+
+// Delete removes the snapshot file for appName from disk.
+// Returns nil if the snapshot does not exist.
+func (s *FileStore) Delete(appName string) error {
+	if err := os.Remove(s.path(appName)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("snapshot store: delete: %w", err)
+	}
+	return nil
 }
