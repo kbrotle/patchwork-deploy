@@ -34,6 +34,11 @@ func (h *Handler) WithSignals(sigs ...os.Signal) *Handler {
 	return h
 }
 
+// AddHook appends a ShutdownFunc to the list of hooks that are called on shutdown.
+func (h *Handler) AddHook(fn ShutdownFunc) {
+	h.hooks = append(h.hooks, fn)
+}
+
 // Wait blocks until a signal is received, then runs all shutdown hooks
 // in registration order. Returns the first non-nil error encountered.
 func (h *Handler) Wait(ctx context.Context) error {
