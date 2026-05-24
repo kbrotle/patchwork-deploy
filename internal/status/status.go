@@ -58,3 +58,22 @@ func (t *Tracker) Get(appName string) (AppStatus, error) {
 	}
 	return t.store.Load(appName)
 }
+
+// Summary returns a slice of AppStatus for all known apps, collecting any
+// load errors into a combined error returned alongside the partial results.
+func (t *Tracker) Summary() ([]AppStatus, error) {
+	var statuses []AppStatus
+	var errs []error
+	for appName := range t.cfg.Apps {
+		s, err := t.store.Load(appName)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("status: loading %q: %w", appName, err))
+			continue
+		}
+		statuses = append(statuses, s)
+	}
+	if len(errs) > 0 {
+		return statuses, fmt.Errorf("status: summary encountered %d error(s): %v", len(errs), errs)
+	}
+	return statuses, nil
+}
