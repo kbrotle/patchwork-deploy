@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -56,6 +57,13 @@ func (n *Notifier) Send(evt Event) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
+		// Read up to 256 bytes of the response body to include in the error
+		// message, giving callers useful context without buffering unbounded data.
+		preview := make([]byte, 256)
+		n, _ := io.ReadFull(resp.Body, preview)
+		if n > 0 {
+			return fmt.Errorf("notify: webhook returned status %d: %s", resp.StatusCode, bytes.TrimSpace(preview[:n]))
+		}
 		return fmt.Errorf("notify: webhook returned status %d", resp.StatusCode)
 	}
 
